@@ -15,14 +15,14 @@ Transfer learning is a machine learning method where a model developed for the f
 In This tutorial uses a subset of ImageNet as a dataset and a ResNet as the architecture.
 
 Sources for this tutorial:
-- [PyTorch.org](https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html)
+- [PyTorch Official Website](https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html)
 - [Video Explanation](https://www.youtube.com/watch?v=t6oHGXt04ik)
-
-## What do we need?
-A future statement is a directive to the compiler that a particular module should be compiled. It helps to use syntax or semantics that will be available in a specified future release of Python where the feature becomes standard. A future statement must appear near the top of the module.
 """
 
 from __future__ import print_function, division
+#A future statement is a directive to the compiler that a particular module should be compiled 
+#using syntax or semantics that will be available in a specified future release of Python where the feature becomes standard.
+#A future statement must appear near the top of the module.
 
 import torch
 import torch.nn as nn  #Contains the neural network layers
@@ -40,18 +40,12 @@ import os #provides functions for creating and removing a directory (folder), fe
 # changing and identifying the current directory, etc.
 import copy #It means that any changes made to a copy of object do reflect in the original object.
 
-"""## Hardware 
-
-This flag allows you to enable the inbuilt cudnn auto-tuner to find the best algorithm to use for your hardware. Use it if your model does not change and your input sizes remain the same
-"""
-
-cudnn.benchmark = True
-
-"""## Plotting
-Turns on the interactive mode of matplotlib.pyplot, in which the graph display gets updated after each statement.
-"""
+cudnn.benchmark = True 
+#This flag allows you to enable the inbuilt cudnn auto-tuner to find the best algorithm to use for your hardware.
+#Use it if your model does not change and your input sizes remain the same
 
 plt.ion()
+# turns on the interactive mode of matplotlib.pyplot, in which the graph display gets updated after each statement.
 
 """## The Problem
 Train a model to classify ants and bees. We have about 120 training images each for ants and bees. There are 75 validation images for each class. Usually, this is a very small dataset to generalize upon, if trained from scratch. Since we are using transfer learning, the network has already learnet useful features and we should be able to generalize reasonably well.
@@ -128,7 +122,7 @@ image_datasets["val"] #to see the information
 
 """### Setting up the data loaders
 - ### *torch.utils.data.DataLoader*  
-Combines a dataset and a sampler, and provides an iterable over the given dataset.(basically sampling the data)
+Combines a dataset and a sampler, and provides an iterable over the given dataset.
 
   - *batch_size=4*
 
@@ -147,36 +141,33 @@ dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
                                              shuffle=True, num_workers=4)
               for x in ['train', 'val']}
 
-"""## Dataset sizes
-
-We will need the dataset sizes for calculating the loss and the accuracy when we are training. We can see here how many training and validation images we have.
-"""
-
-dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
-dataset_sizes["train"], dataset_sizes["val"]
-
-"""## Class Names
-
-Category 0 is ants and category 1 is bees.
-"""
-
-class_names = image_datasets['train'].classes
-class_names
-
-"""## Device for Training
-Even if you don't have an actual GPU, you can head to Colab and use the GPU there since it will speed up the process.
-- ### *torch.device* 
+"""- ### *torch.device*. 
 An object representing the device on which a torch.Tensor is or will be allocated.(('cpu' or 'cuda'))
 """
 
+dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+class_names = image_datasets['train'].classes
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-"""## Visualizing a few Images
+"""## Visualizing a few images
 
-Visualizing a few training images so as to understand the data augmentations. We are defining a function to do the task.
+Visualizing a few training images so as to understand the data augmentations.
 
-- ### *inp = std * inp + mean*
-Since we had a normalization step before, here we have to revert the image to normal. Otherwise, we will get an image w/ color channels all messed up.
+- ### *next(iter(dataloaders))*
+makes dataloader object to be a iterable and “next” helps it to iterate over it.
+If your Dataset.__getitem__ returns multiple tensors, next(iter(loader)) will return a batch for each output.
+- ### *torchvision.utils.make_grid(tensor: Union[torch.Tensor, List[torch.Tensor]], nrow: int = 8, padding: int = 2, normalize: bool = False, value_range: Optional[Tuple[int, int]] = None, scale_each: bool = False, pad_value: float = 0.0, **kwargs)*
+Make a grid of images.
+  - tensor (Tensor or list): 4D mini-batch Tensor of shape (B x C x H x W) or a list of images all of the same size.
+  - nrow (int, optional):  Number of images displayed in each row of the grid. The final grid size is (B / nrow, nrow). Default: 8.
+  - padding (int, optional): amount of padding. Default: 2
+  - normalize (bool, optional): If True, shift the image to the range (0, 1), by the min and max values specified by value_range. Default: False.
+  - value_range (tuple, optional): tuple (min, max) where min and max are numbers, then these numbers are used to normalize the image. By default, min and max are computed from the tensor.
+  - range (tuple. optional)
+  - scale_each (bool, optional): If True, scale each image in the batch of images separately rather than the (min, max) over all images. Default: False.
+  - pad_value (float, optional): Value for the padded pixels. Default: 0.
+
 
 
 
@@ -187,86 +178,42 @@ def imshow(inp, title=None):
     inp = inp.numpy().transpose((1, 2, 0)) #transposes the data (x,y,z)->(y,z,x)
     mean = np.array([0.485, 0.456, 0.406]) # Creates an array.
     std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean #reverting the normalized image
+    inp = std * inp + mean
     inp = np.clip(inp, 0, 1) #Clip (limit) the values in an array.
     plt.imshow(inp)
     if title is not None:
         plt.title(title)
     plt.pause(0.001)  # pause a bit so that plots are updated
 
-"""Get a batch of training data.
-- #### *next(iter(dataloaders))*
-makes dataloader object to be a iterable and “next” helps it to iterate over it.
-If your Dataset.__getitem__ returns multiple tensors, next(iter(loader)) will return a batch for each output.
 
-The result:
-
-- *torch.Size*:
-
- the batch size equal to 4, with 3 channels and an image of size 224*224
-- *tensor*
-
-  It will represent the class of images that will be visualized. (e.g. [0, 1, 1, 1] means first image is an ant the other 3 will be bees.)
-"""
-
+# Get a batch of training data
 inputs, classes = next(iter(dataloaders['train']))
-inputs.shape, classes
 
-"""### Make a grid from batch
-- ### *torchvision.utils.make_grid(tensor: Union[torch.Tensor, List[torch.Tensor]])*
-Make a grid of images.
-  - tensor (Tensor or list): 4D mini-batch Tensor of shape (B x C x H x W) or a list of images all of the same size.
-
-"""
-
+# Make a grid from batch
 out = torchvision.utils.make_grid(inputs)
-
-"""Use the function to visualize some training images.
-
-The images are as we were expecting from the result of line 15.
-"""
 
 imshow(out, title=[class_names[x] for x in classes])
 
 """## Training the model
 A general function to train a model.
-- ### *since = time.time()*
-To keep track of time. So that we can estimate how long it takes to train the model. It returns the time in seconds since the epoch.
 
 - ### *best_model_wts = copy.deepcopy(model.state_dict())*
-To keep the best model at every epoch.
-
-  It will take a copy of the original object and will then recursively take a copy of the inner objects, i.e. all parameters of your model. The model structure will not be saved.
-
-  Here you will initialize it and then at every epoch you will check the accuracy and overwrite it if there is a model with higher accuracy.
-
-ResNet has some layers like batch normalization where you get different behaviour depending on whether you are in training or evaluation. Therefore, it is important to set the model to `model.train` or `model.eval` such that the model behaves exactly like you want.
-
-- *Iterate over data*
-
-  We also have to copy labels and inputs to GPU. to make sure data and labels are in the same device. This step is not necessary if you are using CPU.
+will take a copy of the original object and will then recursively take a copy of the inner objects, i.e. all parameters of your model. The model structure will not be saved.
 
 - ### *optim.Optimizer.zero_grad(set_to_none=False)*
 Sets the gradients of all optimized torch.Tensor s to zero.
   - *set_to_none=False*: instead of setting to zero, set the grads to None.
-
-  If you forget to zero the gradient, it will accumulate the gradients and the backpropagation might not work properly.
-
-
-- *statistics*
-
-  The loss that you get is the average of the current batch. You multiply it with the batch size and you get the original loss.
 """
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
+    #Returns the time in seconds since the epoch.
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-    
-    #training loop
+
     for epoch in range(num_epochs):
-        print(f'Epoch {epoch}/{num_epochs - 1}') #prints the current epoch we are in
+        print(f'Epoch {epoch}/{num_epochs - 1}')
         print('-' * 10)
 
         # Each epoch has a training and validation phase
@@ -276,13 +223,14 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             else:
                 model.eval()   # Set model to evaluate mode
 
-            running_loss = 0.0 #initialize the loss to 0
-            running_corrects = 0 #initialize the number of correct classifications to 0
+            running_loss = 0.0
+            running_corrects = 0
 
             # Iterate over data.
             for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device) #copy inputs to GPU
-                labels = labels.to(device) #copy labels to GPU
+                inputs = inputs.to(device)
+                #uses a copy of inputs that resides on device.
+                labels = labels.to(device)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -292,7 +240,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
                     _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels) #crossentropy loss
+                    loss = criterion(outputs, labels)
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
@@ -300,12 +248,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                         optimizer.step()
 
                 # statistics
-                running_loss += loss.item() * inputs.size(0) #multiply the loss w/ batch size=4
+                running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
             if phase == 'train':
-                scheduler.step() #used for the model to converge faster
-            
-            #print loss and accuracy at the end of every epoch
+                scheduler.step()
+
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
@@ -314,7 +261,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # deep copy the model
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
-                best_model_wts = copy.deepcopy(model.state_dict()) #overwriting the best model
+                best_model_wts = copy.deepcopy(model.state_dict())
 
         print()
 
@@ -327,10 +274,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     return model
 
 """## Visualizing the model predictions
-Visualize what the model has learned after training.
-It is a generic function to display predictions for a few images.
 
-It basically, prints few instances of validation pictures and shows us what prediction the model has made. It is useful for evaluationg how our model performs.
+Generic function to display predictions for a few images
 """
 
 def visualize_model(model, num_images=6):
@@ -358,103 +303,3 @@ def visualize_model(model, num_images=6):
                     model.train(mode=was_training)
                     return
         model.train(mode=was_training)
-
-"""## ResNet18 Architectutre
- Here I wanna check the initial architecture of the ResNet18 trained on the ImageNet dataset.
-
-As you can see for the last fully connected layer we have:
-
-(fc): Linear(in_features=512, out_features=1000, bias=True)
-
-that takes 512 features and the output is the 1000 categories of the ImageNet.
-
-<img title="ResNet18" alt="ResNet18" src="/content/drive/MyDrive/Colab Notebooks/ResNet-18-Architecture.png">
-"""
-
-models.resnet18(pretrained=True)
-
-"""## Finetuning the convnet
-
-We use the model ResNet18 and finetune it on our dataset.
-
-- *model_ft = models.resnet18(pretrained=True)*
-
-  Take the pretrained model and not just the architecture. It was trained on the ImageNet dataset.
-
-- Fully Connected Layer
-
-  Here we will map from `num_ftrs` which is equal to 512 to 2 categories of ants and bees. It replaces the previous architecture. Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
-"""
-
-model_ft = models.resnet18(pretrained=True)
-num_ftrs = model_ft.fc.in_features #number of features in the FC layer
-
-#Model's FC layer
-model_ft.fc = nn.Linear(num_ftrs, 2)
-
-#Copy the model to GPU
-model_ft = model_ft.to(device)
-
-criterion = nn.CrossEntropyLoss()
-
-# Observe that all parameters are being optimized
-optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
-
-# Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
-
-num_ftrs #Just to see :)
-
-"""## Train and evaluate
-It should take around 15-25 min on CPU. On GPU though, it takes less than a minute.
-
-The best validation accuracy will display at the result and you can check where exactly it is the case.
-"""
-
-model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=25)
-
-visualize_model(model_ft) #visualizing some of the results
-
-"""## ConvNet as fixed feature extractor
-
-Here, we need to freeze all the network except the final layer. We need to set `requires_grad = False` to freeze the parameters so that the gradients are not computed in backward().
-
-We will just train the fully connected layer of the model and leave the base model as it is.
-
-Training in this case on CPU wouldn't take as much time as needed for finetuning. Feature extractor is faster since you only have to compute the forward path and no backward step since you don't have to change all the weights in the ResNet.
-"""
-
-model_conv = torchvision.models.resnet18(pretrained=True)
-for param in model_conv.parameters():
-    param.requires_grad = False
-
-# Parameters of newly constructed modules have requires_grad=True by default
-num_ftrs = model_conv.fc.in_features
-model_conv.fc = nn.Linear(num_ftrs, 2)
-
-model_conv = model_conv.to(device)
-
-criterion = nn.CrossEntropyLoss()
-
-# Observe that only parameters of final layer are being optimized as
-# opposed to before.
-optimizer_conv = optim.SGD(model_conv.fc.parameters(), lr=0.001, momentum=0.9)
-
-# Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=7, gamma=0.1)
-
-"""## Train and evaluate
-
-It performs better than the finetuning. It might be the case because the dataset is quite small.
-
-Generally, If you have a large dataset like 1000-5000 images finetuning would be a better option. 
-"""
-
-model_conv = train_model(model_conv, criterion, optimizer_conv,
-                         exp_lr_scheduler, num_epochs=25)
-
-visualize_model(model_conv)
-
-plt.ioff()
-plt.show()

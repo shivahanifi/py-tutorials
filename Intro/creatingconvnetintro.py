@@ -18,18 +18,20 @@ Here we are going to create a convolutinal neural network following the [source]
 """## Preprocessing the data
 
 You need to do it once. Set the `REBUILD_DATA` to `True` and run this block of code once, to preprocess the data, then set it to `False`.
+
+detailed explanation in the `IntroConvnet.py` file.
 """
 
-import os
-import cv2
-import numpy as np
-from tqdm import tqdm
+import os #functions for creating and removing a directory
+import cv2 #OpenCV packages for Python
+import numpy as np #to deal w/ arrays
+from tqdm import tqdm #for progress bars
 
 
-REBUILD_DATA = False # set to true to one once, then back to false unless you want to change something in your training data.
+REBUILD_DATA = True # set to true to one once, then back to false unless you want to change something in your training data.
 
 class DogsVSCats():
-    IMG_SIZE = 50
+    IMG_SIZE = 50 #reshaping images to all be the same.
     CATS = "PetImages/Cat"
     DOGS = "PetImages/Dog"
     TESTING = "PetImages/Testing"
@@ -99,20 +101,42 @@ At first we create the class, and in that class we start to make our layers. The
 
 ## Linear Layers
 
-At some point this network would need some dense/linear layers,. at least one, to be the distribution of predictions.
-The main issue when you go from convolutional layers to fully connected layers or linear layers is to find out the number of inputs. In `Keras` there is a function called `flatten` and it is used at this point, but here with PyTorch there is no cush a function.
+At some point this network would need some dense/linear layers, at least one, to be the distribution of predictions. Convolutional features are just that, they're convolutions, maybe max-pooled convolutions, but they aren't flat. We need to flatten them, like we need to flatten an image before passing it through a regular layer.
 
-  ### What TO Do Now?
- We are going to simply determine the actual shape of the flattened output after the first convolutional layers. The suggested way to do that is to actually pass frake data through the convolutional layers and multiply the dimensions given at the output.
+
+The main issue when you go from convolutional layers to fully connected layers or linear layers is to find out the number of inputs. In `Keras` there is a function called `flatten` and it is used at this point, but here with PyTorch there is no such a function.
+
+  - ### What TO Do Now?
+ We are going to simply determine the actual shape of the flattened output after the first convolutional layers. The suggested way to do that is to actually pass frake data through the convolutional layers and multiply the dimensions given at the output. All we need to do for that is to just grab the dimensions and multiply them. 
 
 - *x = torch.randn(50,50).view(-1,1,50,50)*
 
-Creating some random data to pass through the convolutional layers and get the dimension of the output.
+  Creating some random data to pass through the convolutional layers and get the dimension of the output.
 
   - `1` is related to the input at the first convolutional layer. How many images we have, they all gona be in their tensor form (1,50,50) and the actual tensor that we pass through the neural network will have this exact shape.
 
+- *self._to_linear = None*
+
+  set it to none, then pass this random x data through self.convs, which doesn't yet exist.
+
+- *self.convs(x)*
+
+  have `self.convs` be a part of our forward method. Separating it out just means we can call just this part as needed, without needing to do a full call.
+
+- *F.max_pool2d(F.relu(self.conv1(x)), (2, 2))*
+
+  - *F.relu(self.conv1(x))*
+
+   This is the same as with our regular neural network. We're just running rectified linear on the convolutional layers. 
+
+   Then, we run that through a F.max_pool2d, with a 2x2 window.
+
+
 ## Forward Method
 
+Here we run the `self.convs()`. This time the `if` part would not run since the `self._to_linear` is not `None` anymore.
+
+After it comes out of the `convs` it is not flat yet. With the `view` we are trying to get the shape.
 
 
 
@@ -122,13 +146,141 @@ Creating some random data to pass through the convolutional layers and get the d
 
 """
 
-class Net(nn.module):
+class Net(nn.Module):
     def __init__(self):
-        super().__init__()
-        self.conv1= nn.Conv2d(1, 32 ,5)
-        self.conv2= nn.Conv2d(32, 64 ,5)
+        super().__init__() # just run the init of parent class (nn.Module)
+        self.conv1= nn.Conv2d(1, 32 ,5)  # input is 1 image, 32 output channels, 5x5 kernel / window
+        self.conv2= nn.Conv2d(32, 64 ,5) # take in 32 convolutions/features, and output 64 
         self.conv3= nn.Conv2d(64, 128 ,5)
 
         x = torch.randn(50,50).view(-1,1,50,50) # Creating fake, random data
+        self._to_linear = None
         self.convs(x) # passing the fake data through the convolutional layers
-    def conv(self, x): # Forward method
+
+        self.fc1 = nn.Linear(self._to_linear,512) #flattening
+        self.fc2 = nn.Linear(512, 2) #512 in, 2 out because we are doing 2 classes
+
+
+    def convs(self, x):
+        # max pooling over 2x2
+        x = F.max_pool2d(F.relu(self.conv1(x)), (2,2))
+        x = F.max_pool2d(F.relu(self.conv2(x)), (2,2))
+        x = F.max_pool2d(F.relu(self.conv3(x)), (2,2))
+
+        print(x[0].shape)
+        # Grabboing the shape
+        if self._to_linear is None:
+          #Since x is a batch of the data we mention the zeroeth element by `x[0]`.
+            self._to_linear = x[0].shape[0]*x[0].shape[1]*x[0].shape[2]
+        return x
+
+    def forward(self, x): # Forward method 
+        x = self.convs(x)
+        x = x.view(-1, self._to_linear)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return F.softmax(x, dim=1)
+
+
+net = Net()
+
+"""# Training The Model
+
+We need to make a training loop. For this, we need a loss metric and optimizer.
+
+## Optimizer & Loss function
+"""
+
+import torch.optim as optim
+
+optimizer = optim.Adam(net.parameters(), lr=0.001)
+loss_function = nn.MSELoss() #since we have one_hot vectors we use MSE
+
+"""## Iterating over data
+
+We need to do this in batches. We will seperate the data to train and test groups and also shape it in a way PyTorch expects us (-1, IMG_SIZE, IMG_SIZE).
+
+- Seperating X and Y
+
+  Separating out the featuresets (X) and labels (y) from the training data. Then, we're viewing the X data as (-1, 50, 50).
+
+"""
+
+x = torch. Tensor([i[0] for i in training_data]).view(-1, 50, 50)
+x = x/255.0 #making the values between 0 and 1
+y = torch.Tensor([i[1] for i in training_data])
+
+"""## Seperating training and testing data
+
+Separate out some of the data for validation/out of sample testing.
+
+💡 We're converting to an int because we're going to use this number to slice our data into groups, so it needs to be a valid index:
+"""
+
+VAL_PCT = 0.1 #testing over 10% of dataset
+val_size = int(len(x)*VAL_PCT)
+print(val_size)
+
+"""Train x and y up to the `-val_size`. and test them from `-val_size` on."""
+
+train_x = x[:-val_size] 
+train_y = y[:-val_size]
+
+test_x = x[-val_size:]
+test_y = y[-val_size:]
+
+print(len(train_x))
+print(len(test_x))
+
+"""## Note
+The quickest way to deal with the memory errors is to lower the batch size. If you cannot run more than 8 in a batch, you need to downsize the model itself (like reducing the number of layers).
+
+## Training
+
+- The result of the print line will show the slices over our actual tarining data. e.g. The first batch would be the 0th to the 100th index. (It has been commented)
+
+- ### Difference between `net.zero_grad` and `optim.zero_grad`:
+Since we have previously used `optim.Adam(net.parameters(), lr=0.001)`, all our parameters are being controlled by the optimizer. In this case, there is no difference between `net.zero_grad` and `optim.zero_grad`, you can use both of them interchengably.
+
+  There will be times that you model consists two different neural networks with seperate optimizers that has come together to build one large model, if that is the case, you wanna use the specific network in question. 
+
+- ### Loss function 
+
+  After getting the output we will calculate the loss using the loss function we defined earlier.
+"""
+
+BATCH_SIZE = 100
+EPOCHS = 3
+
+for epoch in range(EPOCHS):
+    for i in tqdm(range(0, len(train_x), BATCH_SIZE)):
+        #print(i, i+BATCH_SIZE) 
+        batch_x = train_x[i:i+BATCH_SIZE].view(-1,1,50,50)
+        batch_y = train_y[i:i+BATCH_SIZE]
+
+        net.zero_grad()
+        outputs = net(batch_x) 
+        loss = loss_function(outputs, batch_y)
+        loss.backward()
+        optimizer.step()
+    
+print(loss)
+
+"""## Evaluating the model
+
+Increasing the number of epochs will help with the accuracy.
+
+
+"""
+
+correct = 0
+total = 0
+with torch.no_grad():
+    for i in  tqdm(range(len(test_x))):
+        real_class = torch.argmax(test_y[i])
+        net_out = net(test_x[i].view(-1,1,50,50))[0] #the zeroeth element
+        predicted_class = torch.argmax(net_out)
+        if predicted_class == real_class:
+            correct +=1
+        total +=1
+print("Accuracy: ", round(correct/total,3))

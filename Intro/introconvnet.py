@@ -90,7 +90,7 @@ We want to iterate through these two directories, grab the images, resize, scale
   Here we want to append the numpy array of the image as well as the class. However, since it is more clear if it is in one_hot vector form we are transforming the classes to on_hot vectors.
     - Converting Scalar Values to one_hot Vectors:
     
-     We have got 2 classes here (cats=0, dogs=1). If we convert it to one_hot it should be [0 0] for no hots. For cats it should be [1 0], and for dogs it should be [0 1]. To convert the `np.eye()`, which produces an identity matrix, is used. We create an identity matrix of the size of our classes and each index represents the corresponding one_hot vector. In our case, there are 2 classes, `np.eye(2)` and for cats it would be `np.eye(2)[0]` which is equal to [1 0].
+     We have got 2 classes here (cats=0, dogs=1). If we convert it to one_hot it should be [0 0] for no hots. For cats it should be [1 0], and for dogs it should be [0 1]. The `np.eye()`, which produces an identity matrix, is used for converting. We create an identity matrix of the size of our classes and each index represents the corresponding one_hot vector. In our case, there are 2 classes, `np.eye(2)` and for cats it would be `np.eye(2)[0]` which is equal to [1 0].
 
 
 The goal for the cat/dog counts is to be identical or very close to eachother. If this is not the case we need to throw away some of the samples from the class with more samples. Otherwise, when your network is optimizing it will optimize for that specific class.
@@ -101,7 +101,7 @@ The goal for the cat/dog counts is to be identical or very close to eachother. I
 
   - *np.random.shuffle(self.training_data)*
 
-  At this point, `training_data` would be a massive list of buch of cats with cat label and bunch of dogs with dog labels. Now it will need to be shuffled.
+  At this point, `training_data` would be a massive list of bunch of cats with cat label and bunch of dogs with dog labels. Now it will need to be shuffled.
 
 """
 
@@ -140,13 +140,32 @@ if REBUILD_DATA:
   dogsvcats= DogsVSCats()
   dogsvcats.make_training_data()
 
-"""Here we get our `ytraining_data` after saving it. We will do it only one time and never run again in this tutorial"""
+"""Here we get our `ytraining_data` after saving it. We will do it only one time and never run again in this tutorial.
+
+- *np.load("training_data.npy", allow_pickle=True)*
+
+  Here we are loading pickled objects from .npy . “Pickling” is the process whereby a Python object hierarchy is converted into a byte stream, and “unpickling” is the inverse operation, whereby a byte stream (from a binary file or bytes-like object) is converted back into an object hierarchy.
+  - allow_pickle
+
+    Allow loading pickled object arrays stored in npy files. Reasons for disallowing pickles include security, as loading pickled data can execute arbitrary code. If pickles are disallowed, loading object arrays will fail. Default: False
+
+- *plt.imshow(training_data[1][0], cmap="gray")*
+
+  Display data as an image, i.e., on a 2D regular raster. The first element is the image data. It indicates the rowa and columns of the image. For the `training_data[1][0]` since the length of the `training_data` is 24946, you can replace [1] with 0-24945. But the [0] part has to remain the same. 
+
+- *plt.show()*
+Display all open figures.
+
+
+"""
 
 training_data = np.load("training_data.npy", allow_pickle=True)
 print(len(training_data))
-print(training_data[0]) #an image and its label
+print(training_data[24945]) #an image and its label
+
+# visualizing the image
 import matplotlib.pyplot as plt
-plt.imshow(training_data[1][0], cmap="gray") #adding colormap to see the image better
+plt.imshow(training_data[24945][0], cmap="gray") #adding colormap to see the image better
 plt.show()
 
 """## Splitting the data
